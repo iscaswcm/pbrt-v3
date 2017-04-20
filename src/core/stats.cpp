@@ -103,6 +103,7 @@ static void getCategoryAndTitle(const std::string &str, std::string *category,
 }
 
 void StatsAccumulator::Print(FILE *dest) {
+	printf("\033[32;49;2m");
     fprintf(dest, "Statistics:\n");
     std::map<std::string, std::vector<std::string>> toPrint;
 
@@ -184,6 +185,7 @@ void StatsAccumulator::Print(FILE *dest) {
         for (auto &item : categories.second)
             fprintf(dest, "    %s\n", item.c_str());
     }
+	printf("\033[0m");
 }
 
 void StatsAccumulator::Clear() {
@@ -356,7 +358,7 @@ void ReportProfilerResults(FILE *dest) {
         DCHECK_LT(nameIndex, NumProfCategories);
         flatResults[ProfNames[nameIndex]] += ps.count;
     }
-
+    printf("\033[31m");
     fprintf(dest, "  Profile\n");
     for (const auto &r : hierarchicalResults) {
         float pct = (100.f * r.second) / overallCount;
@@ -391,6 +393,7 @@ void ReportProfilerResults(FILE *dest) {
                 timeString(pct, now).c_str());
     }
     fprintf(dest, "\n");
+	printf("\033[0m");
 #endif
 }
 
