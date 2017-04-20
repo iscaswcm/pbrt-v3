@@ -37,7 +37,8 @@
 
 #ifndef PBRT_CORE_FILM_H
 #define PBRT_CORE_FILM_H
-
+//GUI
+#include "SDL2/SDL.h"
 // core/film.h*
 #include "pbrt.h"
 #include "geometry.h"
@@ -62,6 +63,16 @@ class Film {
          std::unique_ptr<Filter> filter, Float diagonal,
          const std::string &filename, Float scale,
          Float maxSampleLuminance = Infinity);
+   ~Film(){
+	   if(PbrtOptions.gui)
+	   {
+		   SDL_DestroyWindow(sdl_window);
+		   //SDL_DestroySurface(sdl_surface);
+		   SDL_DestroyTexture(sdl_texture);
+		   SDL_DestroyRenderer(sdl_renderer);
+		   SDL_Quit();
+	   }
+    }         
     Bounds2i GetSampleBounds() const;
     Bounds2f GetPhysicalExtent() const;
     std::unique_ptr<FilmTile> GetFilmTile(const Bounds2i &sampleBounds);
@@ -70,7 +81,7 @@ class Film {
     void AddSplat(const Point2f &p, Spectrum v);
     void WriteImage(Float splatScale = 1);
     void Clear();
-
+    void UpdateDisplay(int x0, int y0, int x1, int y1, float splatScale);
     // Film Public Data
     const Point2i fullResolution;
     const Float diagonal;
@@ -80,6 +91,12 @@ class Film {
 
   private:
     // Film Private Data
+    //GUI
+    SDL_Window *sdl_window;
+    SDL_Surface *sdl_surface;
+    SDL_Renderer *sdl_renderer;
+    SDL_Texture *sdl_texture;
+    std::mutex sdl_mutex;
     struct Pixel {
         Pixel() { xyz[0] = xyz[1] = xyz[2] = filterWeightSum = 0; }
         Float xyz[3];

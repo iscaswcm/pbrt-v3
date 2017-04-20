@@ -1,0 +1,58 @@
+############################################################################
+#
+# This RIB file describes the famous "Cornell Box", which is a test scene
+# commonly used to demonstrate radiosity.
+#
+############################################################################
+Scale -1.000000 1.000000 1.000000
+Translate -278.000000 -273.000000 500.000000
+
+Integrator "mlt"
+           "integer mutationsperpixel" [64]
+           "integer maxdepth"  [5]
+#LookAt format: position, lookat point and  up vector		   
+#LookAt 0 0 0 0 0 1 0.9 1.2 0.3
+LookAt 0 0 0 0 0 1 0 1.2 0.3
+Camera "perspective" "float fov" [55.000000 ]
+Film "image" "integer xresolution" [512] "integer yresolution" [512]
+    "string filename" "cornell-mlt.png"
+
+PixelFilter "box"
+Accelerator "bvh"
+WorldBegin
+############################################################################
+# Light Source Definitions
+############################################################################
+AttributeBegin
+    #Rotate 10 1 0 0 
+    Translate 278.000000 278.000000 279.500000
+    LightSource "point" "point from" [0.000000 200.000000 0.000000 ] "color I" [412300 341100 298600 ] 
+AttributeEnd
+# ignored Illuminate 1.000000 1.000000
+############################################################################
+# Wall Definitions  ---  front, right, up, down
+############################################################################
+AttributeBegin
+    #Sides 1
+    #Material "plastic"
+    Material "matte" "color Kd" [.5 .5 .5]
+    Shape "plymesh" "string filename" "geometry/0.ply"
+# left
+    Material "matte" "color Kd" [.9 .5 .5]
+    Shape "plymesh" "string filename" "geometry/1.ply"
+AttributeEnd
+############################################################################
+# Short Box Definition
+############################################################################
+AttributeBegin
+    Material "matte" "color Kd" [.3 .5 .3]
+   Shape "plymesh" "string filename" "geometry/2.ply"
+AttributeEnd
+############################################################################
+# Tall Box Definition
+############################################################################
+AttributeBegin
+    Material "matte" "color Kd"  [.5 .2 .2]
+    Shape "plymesh" "string filename" "geometry/3.ply"
+AttributeEnd
+WorldEnd

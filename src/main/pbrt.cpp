@@ -67,6 +67,8 @@ Reformatting options:
   --toply              Print a reformatted version of the input file(s) to
                        standard output and convert all triangle meshes to
                        PLY files. Does not render an image.
+Display window  options:
+  --gui                Display an interactive window
 )");
 }
 
@@ -125,7 +127,10 @@ int main(int argc, char *argv[]) {
                    !strcmp(argv[i], "-h")) {
             usage();
             return 0;
-        } else
+        } 
+        else if (!strcmp(argv[i], "--gui") || !strcmp(argv[i], "-gui")) 
+            options.gui = true;
+		else
             filenames.push_back(argv[i]);
     }
 

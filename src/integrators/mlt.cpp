@@ -257,6 +257,12 @@ void MLTIntegrator::Render(const Scene &scene) {
                     progress.Update();
                 arena.Reset();
             }
+			if(PbrtOptions.gui)
+			{
+				int ntf = AtomicAdd(&nTasksFinished, 1);
+				Float splatScale = Clamp(largeStepProbability * ntf / nChainMutations, 0.0f, 0.6f);
+				camera->film->UpdateDisplay(0, 0, camera->film->fullResolution.x, camera->film->fullResolution.y, splatScale);
+			}
         }, nChains);
         progress.Done();
     }

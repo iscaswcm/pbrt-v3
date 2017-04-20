@@ -75,18 +75,98 @@ Film::Film(const Point2i &resolution, const Bounds2f &cropWindow,
             filterTable[offset] = filter->Evaluate(p);
         }
     }
-}
+	if(PbrtOptions.gui)
+	{
+		int xPixelCount = fullResolution.x;
+		int yPixelCount = fullResolution.y;
+		SDL_Init(SDL_INIT_VIDEO);
+		sdl_window = SDL_CreateWindow("My Game Window",
+				SDL_WINDOWPOS_UNDEFINED,
+				SDL_WINDOWPOS_UNDEFINED,
+				xPixelCount, yPixelCount,
+				SDL_WINDOW_OPENGL);
+		if (sdl_window == NULL)
+			printf("Unable to create window to display image");
+		sdl_renderer = SDL_CreateRenderer(sdl_window, -1, 0);
+		Uint32 rmask, gmask, bmask, amask;
+
+		/* SDL interprets each pixel as a 32-bit number, so our masks must depend
+		   on the endianness (byte order) of the machine */
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		rmask = 0xff000000;
+		gmask = 0x00ff0000;
+		bmask = 0x0000ff00;
+		amask = 0x000000ff;
+#else
+		rmask = 0x000000ff;
+		gmask = 0x0000ff00;
+		bmask = 0x00ff0000;
+		amask = 0xff000000;
+#endif
+
+		/* Create a 32-bit surface with the bytes of each pixel in R,G,B,A order,
+		   as expected by OpenGL for textures */
+		//sdl_surface = SDL_CreateRGBSurface(0, xPixelCount, yPixelCount, 32, rmask, gmask, bmask, amask);
+		//Using zeros for the RGB masks sets a default value, based on the depth. (e.g. SDL_CreateRGBSurface(0,w,h,32,0,0,0,0);) 
+		//However, using zero for the Amask results in an Amask of 0
+		sdl_surface = SDL_CreateRGBSurface(0, xPixelCount, yPixelCount, 32, 0, 0, 0, 0);
+		if (sdl_surface == NULL) 
+		{
+			SDL_Log("SDL_CreateRGBSurface() failed: %s", SDL_GetError());
+			exit(1);
+		}
+		sdl_texture = SDL_CreateTexture(sdl_renderer,
+				SDL_PIXELFORMAT_ARGB8888,
+				SDL_TEXTUREACCESS_STREAMING,
+				xPixelCount, yPixelCount);
+		if (SDL_LockSurface(sdl_surface) == -1)
+		{
+			printf("Unable to lock surface for image display");
+		}
+		else 
+		{
+			for (int y = 0; y < yPixelCount; ++y) 
+			{
+				for (int x = 0; x < xPixelCount; ++x) 
+				{
+					u_int *bufp = (u_int *)sdl_surface->pixels + y*sdl_surface->pitch/4 + x;
+					*bufp = SDL_MapRGB(sdl_surface->format, 64, 64, 64);
+				}
+			}
+			SDL_UnlockSurface(sdl_surface);
+			SDL_SetRenderDrawColor(sdl_renderer, 255, 0, 0, 255);
+			SDL_RenderClear(sdl_renderer);
+			SDL_RenderPresent(sdl_renderer);// old: SDL_UpdateRect(sdlWindow, 0, 0, xPixelCount, yPixelCount);
+			SDL_Delay(2000);
+			//display frame
+			SDL_SetRenderDrawColor(sdl_renderer, 0, 255, 0, 255);
+			SDL_RenderClear(sdl_renderer);
+			SDL_RenderPresent(sdl_renderer);// old: SDL_UpdateRect(sdlWindow, 0, 0, xPixelCount, yPixelCount);
+			SDL_Delay(2000);
+			//display frame
+			SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 255, 255);
+			SDL_RenderClear(sdl_renderer);
+			SDL_RenderPresent(sdl_renderer);// old: SDL_UpdateRect(sdlWindow, 0, 0, xPixelCount, yPixelCount);
+			//display frame
+			SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 255);
+			SDL_RenderClear(sdl_renderer);
+			SDL_RenderPresent(sdl_renderer);// old: SDL_UpdateRect(sdlWindow, 0, 0, xPixelCount, yPixelCount);
+			SDL_Delay(2000);
+			//display frame
+		}
+	}
+	  }
 
 Bounds2i Film::GetSampleBounds() const {
-    Bounds2f floatBounds(Floor(Point2f(croppedPixelBounds.pMin) +
-                               Vector2f(0.5f, 0.5f) - filter->radius),
-                         Ceil(Point2f(croppedPixelBounds.pMax) -
-                              Vector2f(0.5f, 0.5f) + filter->radius));
-    return (Bounds2i)floatBounds;
+	Bounds2f floatBounds(Floor(Point2f(croppedPixelBounds.pMin) +
+				Vector2f(0.5f, 0.5f) - filter->radius),
+			Ceil(Point2f(croppedPixelBounds.pMax) -
+				Vector2f(0.5f, 0.5f) + filter->radius));
+	return (Bounds2i)floatBounds;
 }
 
 Bounds2f Film::GetPhysicalExtent() const {
-    Float aspect = (Float)fullResolution.y / (Float)fullResolution.x;
+	Float aspect = (Float)fullResolution.y / (Float)fullResolution.x;
     Float x = std::sqrt(diagonal * diagonal / (1 + aspect * aspect));
     Float y = aspect * x;
     return Bounds2f(Point2f(-x / 2, -y / 2), Point2f(x / 2, y / 2));
@@ -164,6 +244,83 @@ void Film::AddSplat(const Point2f &p, Spectrum v) {
     Pixel &pixel = GetPixel((Point2i)p);
     for (int i = 0; i < 3; ++i) pixel.splatXYZ[i].Add(xyz[i]);
 }
+
+void Film::UpdateDisplay(int x0, int y0, int x1, int y1, float splatScale) 
+{
+    if (!sdl_window) 
+    {
+		return;
+	}
+    // Compute window coordinates for pixels to update
+    int xPixelStart =0;
+    int xPixelCount = fullResolution.x;
+    int yPixelStart = 0;
+    int yPixelCount = fullResolution.y;
+    x0 -= xPixelStart;
+    x1 -= xPixelStart;
+    y0 -= yPixelStart;
+    y1 -= yPixelStart;
+    x0 = Clamp(x0, 0, xPixelCount);
+    x1 = Clamp(x1, 0, xPixelCount);
+    y0 = Clamp(y0, 0, yPixelCount);
+    y1 = Clamp(y1, 0, yPixelCount);
+    u_int *pix = new u_int[(x1-x0)*(y1-y0)];
+    u_int *pp = pix;
+    for (int y = y0; y < y1; ++y) 
+    {
+        for (int x = x0; x < x1; ++x) 
+        {
+            // Compute weighted pixel value and update window pixel
+            Point2i p(x,y);
+            Pixel &pixel = GetPixel(p);
+            Float rgb[3];
+            XYZToRGB(pixel.xyz, rgb);
+            Float weightSum = pixel.filterWeightSum;
+            if (weightSum != 0.f) 
+            {
+                Float invWt = 1.f / weightSum;
+                rgb[0] *= invWt;
+                rgb[1] *= invWt;
+                rgb[2] *= invWt;
+            }
+
+            Float splatRGB[3];
+            Float splatXYZ[3] = {pixel.splatXYZ[0], pixel.splatXYZ[1], pixel.splatXYZ[2]};
+            XYZToRGB(splatXYZ, splatRGB);
+            rgb[0] += splatScale * splatRGB[0];
+            rgb[1] += splatScale * splatRGB[1];
+            rgb[2] += splatScale * splatRGB[2];
+            
+            *pp++ = SDL_MapRGB(sdl_surface->format,
+                u_char(Clamp(powf(rgb[0], 1./1.8), 0.f, 1.f) * 255),
+                u_char(Clamp(powf(rgb[1], 1./1.8), 0.f, 1.f) * 255),
+                u_char(Clamp(powf(rgb[2], 1./1.8), 0.f, 1.f) * 255));
+        }
+    }
+    // Acquire mutex lock, update window pixels, redraw
+    //MutexLock lock(*sdlmutex);
+    std::lock_guard<std::mutex> lock(sdl_mutex);
+    if (SDL_LockSurface(sdl_surface) == -1) 
+    { 
+	}
+    
+    pp=pix;
+    for (int y = y0; y < y1; ++y) 
+    {
+        for (int x = x0; x < x1; ++x) 
+        {
+            u_int *bufp = (u_int *)sdl_surface->pixels + y*sdl_surface->pitch/4 + x;
+            *bufp = *pp++;
+        }
+    }
+    SDL_UnlockSurface(sdl_surface);
+    SDL_UpdateTexture(sdl_texture, NULL, sdl_surface->pixels, sdl_surface->pitch);
+    SDL_RenderClear(sdl_renderer);
+    SDL_RenderCopy(sdl_renderer, sdl_texture, NULL, NULL);
+    SDL_RenderPresent(sdl_renderer);
+    delete[] pix;
+}
+
 
 void Film::WriteImage(Float splatScale) {
     // Convert image to RGB and compute final pixel values

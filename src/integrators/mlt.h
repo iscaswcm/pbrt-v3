@@ -48,7 +48,39 @@
 #include <unordered_map>
 
 namespace pbrt {
-
+//for GUI diaplay
+//by wcm
+typedef volatile int32_t AtomicInt32;
+inline int32_t AtomicAdd(AtomicInt32 *v, int32_t delta) {
+#if defined(PBRT_IS_WINDOWS)
+    // Do atomic add with MSVC inline assembly
+#if (PBRT_POINTER_SIZE == 8)
+    return InterlockedAdd(v, delta);
+#else
+    int32_t result;
+    _ReadWriteBarrier();
+    __asm {
+        __asm mov edx, v
+        __asm mov eax, delta
+        __asm lock xadd [edx], eax
+        __asm mov result, eax
+    }
+    _ReadWriteBarrier();
+    return result + delta;
+#endif
+#elif defined(PBRT_IS_APPLE_PPC)
+    return OSAtomicAdd32Barrier(delta, v);
+#else
+    // Do atomic add with gcc x86 inline assembly
+    int32_t origValue;
+    __asm__ __volatile__("lock\n"
+                         "xaddl %0,%1"
+                         : "=r"(origValue), "=m"(*v) : "0"(delta)
+                         : "memory");
+    return origValue + delta;
+#endif
+}
+//for GUI diaplay
 // MLTSampler Declarations
 class MLTSampler : public Sampler {
   public:
@@ -116,7 +148,10 @@ class MLTIntegrator : public Integrator {
           nChains(nChains),
           mutationsPerPixel(mutationsPerPixel),
           sigma(sigma),
-          largeStepProbability(largeStepProbability) {}
+          largeStepProbability(largeStepProbability) 
+	{
+		nTasksFinished = 0;
+	}
     void Render(const Scene &scene);
     Spectrum L(const Scene &scene, MemoryArena &arena,
                const std::unique_ptr<Distribution1D> &lightDistr,
@@ -131,6 +166,7 @@ class MLTIntegrator : public Integrator {
     const int nChains;
     const int mutationsPerPixel;
     const Float sigma, largeStepProbability;
+	AtomicInt32 nTasksFinished;
 };
 
 MLTIntegrator *CreateMLTIntegrator(const ParamSet &params,
